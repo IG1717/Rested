@@ -53,7 +53,7 @@ CREATE TABLE daily_metrics (
   awake_minutes integer,
   in_bed_minutes integer,
   sleep_efficiency real,
-  sleep_score integer,
+  sleep_score integer, -- unused since 2026-10-16 (calculated score removed); safe to drop
   bedtime timestamptz,
   wake_time timestamptz,
   updated_at timestamptz NOT NULL DEFAULT now(),

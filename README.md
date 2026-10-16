@@ -15,8 +15,9 @@ No App Store needed.
   and a daily Vercel Cron job (`/api/cron/sync`) catches anything missed. Each sync rolls the data up
   into one `daily_metrics` row per person per day.
 - **Groups** are invite-link based. Everyone in a group sees everyone's stats.
-- **Sleep Score** (0–100) is computed in `src/lib/sleep-score.ts`: duration 50, deep + REM share 25,
-  efficiency 25. Sleep counts toward the day you woke up.
+- **Sleep** is ranked on time asleep and on deep, REM and light minutes, all as reported by Google Health.
+  Google's own Sleep Score isn't available through the API, so Rested doesn't invent one. Each night counts
+  toward the day you woke up.
 
 ## Stack
 

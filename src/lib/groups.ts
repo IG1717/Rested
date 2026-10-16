@@ -70,7 +70,7 @@ export async function getGroupMetrics(memberIds: string[], since: string): Promi
   const rows = await sql`
     SELECT user_id, to_char(date, 'YYYY-MM-DD') AS date, steps, azm, active_kcal, floors,
       distance_m, workouts, workout_minutes, sleep_minutes, deep_minutes, rem_minutes,
-      in_bed_minutes, sleep_efficiency, sleep_score, bedtime, wake_time
+      light_minutes, in_bed_minutes, sleep_efficiency, bedtime, wake_time
     FROM daily_metrics
     WHERE user_id = ANY(${memberIds}::uuid[]) AND date >= ${since}::date
     ORDER BY date`;
@@ -87,9 +87,9 @@ export async function getGroupMetrics(memberIds: string[], since: string): Promi
     sleepMinutes: r.sleep_minutes,
     deepMinutes: r.deep_minutes,
     remMinutes: r.rem_minutes,
+    lightMinutes: r.light_minutes,
     inBedMinutes: r.in_bed_minutes,
     sleepEfficiency: r.sleep_efficiency,
-    sleepScore: r.sleep_score,
     bedtime: r.bedtime ? new Date(r.bedtime).toISOString() : null,
     wakeTime: r.wake_time ? new Date(r.wake_time).toISOString() : null,
   }));

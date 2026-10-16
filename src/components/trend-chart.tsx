@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { memberColor } from "./avatar";
 import { Segmented } from "./segmented";
 import { addDays, dateRange } from "@/lib/dates";
-import type { DayRow, Metric } from "@/lib/metrics";
+import { formatDuration, type DayRow, type Metric } from "@/lib/metrics";
 import type { BoardMember } from "./group-board";
 
 const HEIGHT = 210;
@@ -21,7 +21,7 @@ function niceStep(span: number, count: number) {
 }
 
 function tickLabel(metric: Metric, v: number) {
-  if (metric.key === "sleepMinutes" || metric.key === "deepRem" || metric.key === "workoutMinutes") {
+  if (metric.format === formatDuration) {
     return v % 60 === 0 ? `${v / 60}h` : `${(v / 60).toFixed(1)}h`;
   }
   if (Math.abs(v) >= 10000) return `${Math.round(v / 1000)}k`;

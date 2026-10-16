@@ -4,7 +4,6 @@ import { NavBar } from "@/components/nav-bar";
 import { Avatar } from "@/components/avatar";
 import { ConfirmSubmit, SyncNowButton } from "@/components/client-buttons";
 import { SyncStatus } from "@/components/sync-provider";
-import { SLEEP_TARGET_MINUTES } from "@/lib/sleep-score";
 
 export default async function MePage() {
   const user = await requireUser("/me");
@@ -46,29 +45,10 @@ export default async function MePage() {
       </section>
 
       <section className="section content">
-        <h2 className="section-header">How the Sleep Score Works</h2>
-        <div className="list">
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">Duration</div>
-              <div className="row-sub">Full marks at {SLEEP_TARGET_MINUTES / 60}h asleep or more</div>
-            </div>
-            <span className="row-detail tnum">50</span>
-          </div>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">Deep + REM</div>
-              <div className="row-sub">Full marks when 40% of sleep is deep or REM</div>
-            </div>
-            <span className="row-detail tnum">25</span>
-          </div>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">Efficiency</div>
-              <div className="row-sub">Asleep ÷ time in bed. Full marks at 95%, none below 75%</div>
-            </div>
-            <span className="row-detail tnum">25</span>
-          </div>
+        <h2 className="section-header">How Stats Work</h2>
+        <div className="notice">
+          <strong>Sleep</strong> is ranked on time asleep and on minutes in deep, REM and light sleep, exactly as
+          Google Health reports them. Time awake in bed doesn&apos;t count.
         </div>
         <p className="section-footer">
           Each night uses your main sleep and counts toward the day you woke up. Weekly and monthly sleep

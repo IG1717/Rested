@@ -13,9 +13,9 @@ export type DayRow = {
   sleepMinutes: number | null;
   deepMinutes: number | null;
   remMinutes: number | null;
+  lightMinutes: number | null;
   inBedMinutes: number | null;
   sleepEfficiency: number | null;
-  sleepScore: number | null;
   bedtime: string | null;
   wakeTime: string | null;
 };
@@ -24,9 +24,10 @@ export type Category = "sleep" | "activity";
 export type Period = "day" | "week" | "month";
 
 export type MetricKey =
-  | "sleepScore"
   | "sleepMinutes"
-  | "deepRem"
+  | "deepMinutes"
+  | "remMinutes"
+  | "lightMinutes"
   | "steps"
   | "azm"
   | "workoutMinutes"
@@ -57,16 +58,6 @@ const METERS_PER_MILE = 1609.344;
 
 export const METRICS: Metric[] = [
   {
-    key: "sleepScore",
-    category: "sleep",
-    label: "Sleep Score",
-    agg: "avg",
-    value: (r) => r.sleepScore,
-    format: (v) => String(Math.round(v)),
-    unit: "pts",
-    description: "Duration, deep + REM share and efficiency, out of 100.",
-  },
-  {
     key: "sleepMinutes",
     category: "sleep",
     label: "Time Asleep",
@@ -77,14 +68,34 @@ export const METRICS: Metric[] = [
     description: "Minutes actually asleep in your main sleep, not counting time awake in bed.",
   },
   {
-    key: "deepRem",
+    key: "deepMinutes",
     category: "sleep",
-    label: "Deep + REM",
+    label: "Deep",
     agg: "avg",
-    value: (r) => (r.deepMinutes == null || r.remMinutes == null ? null : r.deepMinutes + r.remMinutes),
+    value: (r) => r.deepMinutes,
     format: formatDuration,
     unit: "",
-    description: "The restorative stages. Needs sleep-stage tracking for that night.",
+    description: "Time in deep sleep, as tracked by Google Health. Nights without stage tracking don't count.",
+  },
+  {
+    key: "remMinutes",
+    category: "sleep",
+    label: "REM",
+    agg: "avg",
+    value: (r) => r.remMinutes,
+    format: formatDuration,
+    unit: "",
+    description: "Time in REM sleep, as tracked by Google Health. Nights without stage tracking don't count.",
+  },
+  {
+    key: "lightMinutes",
+    category: "sleep",
+    label: "Light",
+    agg: "avg",
+    value: (r) => r.lightMinutes,
+    format: formatDuration,
+    unit: "",
+    description: "Time in light sleep, as tracked by Google Health. Nights without stage tracking don't count.",
   },
   {
     key: "steps",

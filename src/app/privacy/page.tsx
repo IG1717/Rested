@@ -40,7 +40,7 @@ export default function PrivacyPage() {
       <h2>What we store</h2>
       <p>
         Rested stores one summary row per day: totals such as steps and Zone Minutes, and nightly sleep figures such
-        as time asleep, deep and REM minutes, and a computed Sleep Score. It also stores your groups and an
+        as time asleep and minutes in deep, REM and light sleep. It also stores your groups and an
         encrypted Google access token so it can keep your stats up to date. Raw minute-by-minute data is not kept.
         Data is held in a Neon Postgres database and served by Vercel, both in the United States.
       </p>

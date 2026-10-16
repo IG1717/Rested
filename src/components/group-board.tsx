@@ -6,6 +6,7 @@ import { StepLeft, StepRight } from "./icons";
 import { Segmented } from "./segmented";
 import { TrendChart } from "./trend-chart";
 import {
+  formatDuration,
   METRICS,
   metricByKey,
   standings,
@@ -18,7 +19,7 @@ import { addDays, addMonths, startOfMonth, startOfWeek } from "@/lib/dates";
 
 export type BoardMember = { id: string; name: string; avatarUrl: string | null; slot: number };
 
-const DEFAULT_METRIC: Record<Category, MetricKey> = { sleep: "sleepScore", activity: "steps" };
+const DEFAULT_METRIC: Record<Category, MetricKey> = { sleep: "sleepMinutes", activity: "steps" };
 const ACCENT: Record<Category, { text: string; fill: string }> = {
   sleep: { text: "var(--sleep)", fill: "var(--sleep)" },
   activity: { text: "var(--activity)", fill: "var(--activity-fill)" },
@@ -121,6 +122,7 @@ export function GroupBoard({
   const canGoBack = periodRange(period, today, offset + 1).to >= earliest;
   const label = periodLabel(period, category, offset, from, to);
   const list = standings(rows, memberIds, metric, from, to);
+  const stages = metric.key === "sleepMinutes" ? stageAverages(rows, from, to) : null;
   const leader = list[0]?.value ?? 0;
   const me = list.find((s) => s.userId === viewerId);
   const ranked = list.filter((s) => s.rank != null);
@@ -215,10 +217,18 @@ export function GroupBoard({
             const m = byId.get(s.userId)!;
             const isMe = s.userId === viewerId;
             const pct = s.value != null && leader > 0 ? Math.max(0.02, s.value / leader) : 0;
+            const split = stages?.get(s.userId);
             const sub =
               s.value == null
                 ? "No data yet"
-                : metric.key === "workoutMinutes"
+                : split
+                  ? (
+                      <>
+                        <span className="nowrap">Deep {formatDuration(split.deep)}</span> ·{" "}
+                        <span className="nowrap">REM {formatDuration(split.rem)}</span>
+                      </>
+                    )
+                  : metric.key === "workoutMinutes"
                   ? `${s.workouts} workout${s.workouts === 1 ? "" : "s"}`
                   : metric.agg === "avg" && period !== "day"
                     ? `Avg of ${s.days} night${s.days === 1 ? "" : "s"}`
@@ -238,7 +248,16 @@ export function GroupBoard({
                   </div>
                   {sub && <div className="row-sub">{sub}</div>}
                   <div className="bar-track" aria-hidden>
-                    <div className="bar-fill" style={{ transform: `scaleX(${pct})` }} />
+                    {split ? (
+                      // Stage split: segment widths are minutes relative to the leader's total.
+                      <div className="bar-stack" style={{ width: `${pct * 100}%` }}>
+                        <span className="stage-deep" style={{ flexGrow: split.deep }} />
+                        <span className="stage-rem" style={{ flexGrow: split.rem }} />
+                        <span className="stage-light" style={{ flexGrow: split.light }} />
+                      </div>
+                    ) : (
+                      <div className="bar-fill" style={{ transform: `scaleX(${pct})` }} />
+                    )}
                   </div>
                 </div>
                 <div className="score">
@@ -270,6 +289,23 @@ export function GroupBoard({
         />
       </section>
     </div>
+  );
+}
+
+/** Average minutes per stage over nights with stage data, per member. */
+function stageAverages(rows: DayRow[], from: string, to: string) {
+  const acc = new Map<string, { deep: number; rem: number; light: number; n: number }>();
+  for (const r of rows) {
+    if (r.date < from || r.date > to || r.deepMinutes == null || r.remMinutes == null || r.lightMinutes == null) continue;
+    const a = acc.get(r.userId) ?? { deep: 0, rem: 0, light: 0, n: 0 };
+    a.deep += r.deepMinutes;
+    a.rem += r.remMinutes;
+    a.light += r.lightMinutes;
+    a.n += 1;
+    acc.set(r.userId, a);
+  }
+  return new Map(
+    [...acc].map(([id, a]) => [id, { deep: a.deep / a.n, rem: a.rem / a.n, light: a.light / a.n }]),
   );
 }
 

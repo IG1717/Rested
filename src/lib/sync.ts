@@ -13,7 +13,6 @@ import {
   type SleepSession,
 } from "./health";
 import { addDays, dateRange, daysBetween, todayIn } from "./dates";
-import { sleepScore } from "./sleep-score";
 
 export const BACKFILL_DAYS = 30;
 const MAX_RANGE_DAYS = 89; // dailyRollUp accepts at most 90 days
@@ -33,7 +32,6 @@ type Row = {
   awake_minutes: number | null;
   in_bed_minutes: number | null;
   sleep_efficiency: number | null;
-  sleep_score: number | null;
   bedtime: string | null;
   wake_time: string | null;
 };
@@ -53,7 +51,6 @@ const emptyRow = (): Row => ({
   awake_minutes: null,
   in_bed_minutes: null,
   sleep_efficiency: null,
-  sleep_score: null,
   bedtime: null,
   wake_time: null,
 });
@@ -174,16 +171,13 @@ export async function syncUser(
       if (s?.summary) {
         const asleep = Number(s.summary.minutesAsleep ?? 0);
         const inBed = Number(s.summary.minutesInSleepPeriod ?? 0);
-        const deep = stageMinutes(s, "DEEP");
-        const rem = stageMinutes(s, "REM");
         r.sleep_minutes = asleep;
         r.in_bed_minutes = inBed;
-        r.deep_minutes = deep;
-        r.rem_minutes = rem;
+        r.deep_minutes = stageMinutes(s, "DEEP");
+        r.rem_minutes = stageMinutes(s, "REM");
         r.light_minutes = stageMinutes(s, "LIGHT");
         r.awake_minutes = Number(s.summary.minutesAwake ?? 0);
         r.sleep_efficiency = inBed > 0 ? asleep / inBed : null;
-        r.sleep_score = sleepScore({ asleep, inBed, deep, rem });
         r.bedtime = s.interval.startTime;
         r.wake_time = s.interval.endTime;
       }
@@ -194,13 +188,13 @@ export async function syncUser(
     await sql`
       INSERT INTO daily_metrics (user_id, date, steps, azm, active_kcal, floors, distance_m,
         workouts, workout_minutes, sleep_minutes, deep_minutes, rem_minutes, light_minutes,
-        awake_minutes, in_bed_minutes, sleep_efficiency, sleep_score, bedtime, wake_time, updated_at)
+        awake_minutes, in_bed_minutes, sleep_efficiency, bedtime, wake_time, updated_at)
       SELECT ${userId}::uuid, * , now() FROM unnest(
         ${dates}::date[], ${col("steps")}::int[], ${col("azm")}::int[], ${col("active_kcal")}::int[],
         ${col("floors")}::int[], ${col("distance_m")}::real[], ${col("workouts")}::int[],
         ${col("workout_minutes")}::int[], ${col("sleep_minutes")}::int[], ${col("deep_minutes")}::int[],
         ${col("rem_minutes")}::int[], ${col("light_minutes")}::int[], ${col("awake_minutes")}::int[],
-        ${col("in_bed_minutes")}::int[], ${col("sleep_efficiency")}::real[], ${col("sleep_score")}::int[],
+        ${col("in_bed_minutes")}::int[], ${col("sleep_efficiency")}::real[],
         ${col("bedtime")}::timestamptz[], ${col("wake_time")}::timestamptz[])
       ON CONFLICT (user_id, date) DO UPDATE SET
         steps = EXCLUDED.steps, azm = EXCLUDED.azm, active_kcal = EXCLUDED.active_kcal,
@@ -209,7 +203,7 @@ export async function syncUser(
         deep_minutes = EXCLUDED.deep_minutes, rem_minutes = EXCLUDED.rem_minutes,
         light_minutes = EXCLUDED.light_minutes, awake_minutes = EXCLUDED.awake_minutes,
         in_bed_minutes = EXCLUDED.in_bed_minutes, sleep_efficiency = EXCLUDED.sleep_efficiency,
-        sleep_score = EXCLUDED.sleep_score, bedtime = EXCLUDED.bedtime, wake_time = EXCLUDED.wake_time,
+        bedtime = EXCLUDED.bedtime, wake_time = EXCLUDED.wake_time,
         updated_at = now()`;
 
     // Only a full "catch-up" sync advances last_synced_at; webhook syncs cover partial ranges.

@@ -19,7 +19,7 @@ export default function TermsPage() {
 
       <h2>Not medical advice</h2>
       <p>
-        Rested&apos;s rankings and Sleep Score are for fun and friendly competition. They are not medical
+        Rested&apos;s rankings are for fun and friendly competition. They are not medical
         advice and are not meant to diagnose, treat or prevent any condition. Talk to a doctor about health
         concerns.
       </p>

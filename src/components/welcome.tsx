@@ -17,7 +17,7 @@ export function Welcome({ next, error, invite }: { next?: string; error?: string
           <MoonIcon className="ficon" />
           <div>
             <strong>Sleep, head to head</strong>
-            <span>Sleep Score, time asleep and deep + REM, ranked every night.</span>
+            <span>Hours asleep, plus deep, REM and light sleep, ranked every night.</span>
           </div>
         </li>
         <li>

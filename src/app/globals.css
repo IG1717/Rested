@@ -19,6 +19,9 @@
   --scrim: rgba(0, 0, 0, 0.25);
 
   --tint: #5856d6; /* indigo — app accent */
+  --stage-deep: #2f2c9e;
+  --stage-rem: #5856d6;
+  --stage-light: #a9a7f0;
   --sleep: #5856d6;
   --activity: #248a3d; /* green, darkened for text contrast on white */
   --activity-fill: #34c759;
@@ -75,6 +78,9 @@
 
     --tint: #7d7aff;
     --sleep: #7d7aff;
+    --stage-deep: #5e5ce6;
+    --stage-rem: #8f8cff;
+    --stage-light: #c7c6ff;
     --activity: #30d158;
     --activity-fill: #30d158;
     --danger: #ff453a;
@@ -141,6 +147,10 @@ select {
 
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 /* ---------- Layout ---------- */
@@ -716,6 +726,30 @@ button.row:active {
   transition: transform var(--spring-dur) var(--spring);
 }
 
+/* Sleep stage split — one indigo ramp, deepest stage darkest; 2px surface gaps between segments. */
+.bar-stack {
+  display: flex;
+  gap: 2px;
+  height: 100%;
+  transition: width var(--spring-dur) var(--spring);
+}
+
+.bar-stack span {
+  flex-basis: 0;
+  min-width: 2px;
+  border-radius: 2px;
+}
+
+.stage-deep {
+  background: var(--stage-deep);
+}
+.stage-rem {
+  background: var(--stage-rem);
+}
+.stage-light {
+  background: var(--stage-light);
+}
+
 .score {
   text-align: right;
   flex: none;
@@ -1175,6 +1209,7 @@ button.row:active {
   }
   .segmented-thumb,
   .bar-fill,
+  .bar-stack,
   .navbar-title {
     transition-duration: 150ms;
   }
