@@ -46,7 +46,8 @@ export function Welcome({ next, error, invite }: { next?: string; error?: string
         </a>
         <p className="fine-print">
           Use the Google account your Fitbit syncs to. Google will ask to share your sleep and activity data
-          with Rested. Only people in your groups can see it.
+          with Rested. Only people in your groups can see it. <a href="/privacy">Privacy</a> ·{" "}
+          <a href="/terms">Terms</a>
         </p>
       </div>
     </main>

@@ -99,7 +99,7 @@ export default async function MePage() {
         </form>
         <p className="section-footer">
           Removes your stats from every group, deletes your account, and revokes Rested&apos;s access to
-          your Google Health data.
+          your Google Health data. <a href="/privacy" style={{ color: "var(--tint)" }}>Privacy Policy</a>
         </p>
       </section>
     </>

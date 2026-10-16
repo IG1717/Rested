@@ -1202,3 +1202,62 @@ button.row:active {
     box-shadow: 0 0 0 1px var(--label-2);
   }
 }
+
+/* ---------- Legal pages ---------- */
+
+.doc {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(var(--safe-top) + 16px) 20px calc(var(--safe-bottom) + 48px);
+  line-height: 1.5;
+}
+
+.doc-back {
+  display: inline-block;
+  color: var(--tint);
+  padding: 8px 0;
+  min-height: 44px;
+}
+
+.doc h1 {
+  font-size: 2.125rem;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin-top: 8px;
+}
+
+.doc h2 {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  margin-top: 28px;
+}
+
+.doc p,
+.doc ul {
+  margin-top: 10px;
+  color: var(--label-2);
+}
+
+.doc strong {
+  color: var(--label);
+}
+
+.doc ul {
+  padding-left: 20px;
+}
+
+.doc li + li {
+  margin-top: 6px;
+}
+
+.doc a {
+  color: var(--tint);
+}
+
+.doc-meta {
+  font-size: 0.8125rem;
+}
+
+.fine-print a {
+  color: var(--tint);
+}
