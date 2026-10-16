@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rested
 
-## Getting Started
+Friendly sleep and activity leaderboards for friends who wear Fitbit / Google trackers.
+Google Health only lets you compare steps and cardio load. Rested adds sleep, Zone Minutes,
+workouts, calories, distance and floors.
 
-First, run the development server:
+It's an installable web app (PWA): open it in Safari or Chrome and **Add to Home Screen**.
+No App Store needed.
+
+## How it works
+
+- **Sign in with Google** requests read-only Google Health scopes for sleep and activity/fitness.
+- **Sync**: the [Google Health API](https://developers.google.com/health) pushes webhook
+  notifications to `/api/webhooks/google-health` when new data lands. The app also syncs when opened,
+  and a daily Vercel Cron job (`/api/cron/sync`) catches anything missed. Each sync rolls the data up
+  into one `daily_metrics` row per person per day.
+- **Groups** are invite-link based. Everyone in a group sees everyone's stats.
+- **Sleep Score** (0–100) is computed in `src/lib/sleep-score.ts`: duration 50, deep + REM share 25,
+  efficiency 25. Sleep counts toward the day you woke up.
+
+## Stack
+
+Next.js 16 (App Router) on Vercel · Neon Postgres (`db/schema.sql`) · Google OAuth + Google Health API v4.
+
+## Local development
 
 ```bash
+cp .env.example .env.local   # fill in values
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Add `http://localhost:3000/api/auth/callback` as an authorized redirect URI on the OAuth client.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Google Cloud setup (one time)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a Cloud project and enable the **Google Health API** (`health.googleapis.com`).
+2. Google Auth Platform → Branding/Audience: **External**. Add the two scopes
+   `googlehealth.sleep.readonly` and `googlehealth.activity_and_fitness.readonly`.
+3. Create an OAuth **Web** client. Redirect URI: `https://<your-domain>/api/auth/callback`.
+4. Set the publishing status to **In production**. In "Testing" mode, Google expires refresh tokens after
+   7 days. The app stays unverified, so it's capped at 100 users and people see an
+   "unverified app" notice once when they sign in.
+5. Register the webhook subscriber (needs the project **number**):
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+curl -X POST "https://health.googleapis.com/v4/projects/$PROJECT_NUMBER/subscribers?subscriberId=rested-webhooks" \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "x-goog-user-project: $PROJECT_ID" -H "Content-Type: application/json" \
+  -d '{
+    "endpointUri": "https://<your-domain>/api/webhooks/google-health",
+    "endpointAuthorization": { "secret": "Bearer '"$WEBHOOK_SECRET"'" },
+    "subscriberConfigs": [{
+      "dataTypes": ["sleep","steps","distance","floors","active-zone-minutes","exercise"],
+      "subscriptionCreatePolicy": "AUTOMATIC"
+    }]
+  }'
+```
