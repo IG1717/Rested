@@ -7,6 +7,8 @@ import {
   HealthApiError,
   listExercise,
   listSleep,
+  sessionEndDate,
+  sessionStartDate,
   type DailyRollup,
   type SleepSession,
 } from "./health";
@@ -72,7 +74,7 @@ function mainSleepByDate(sessions: SleepSession[]) {
   const out = new Map<string, SleepSession>();
   for (const s of sessions) {
     if (s.metadata?.nap) continue;
-    const date = civilDate(s.interval.civilEndTime);
+    const date = sessionEndDate(s.interval);
     const cur = out.get(date);
     const asleep = Number(s.summary?.minutesAsleep ?? 0);
     if (
@@ -142,7 +144,7 @@ export async function syncUser(
 
     const workoutsBy = new Map<string, { count: number; minutes: number }>();
     for (const e of exercise) {
-      const date = civilDate(e.interval.civilStartTime);
+      const date = sessionStartDate(e.interval);
       const w = workoutsBy.get(date) ?? { count: 0, minutes: 0 };
       w.count += 1;
       w.minutes += durationMinutes(e.activeDuration, e.interval.startTime, e.interval.endTime);

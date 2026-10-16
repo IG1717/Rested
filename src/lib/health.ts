@@ -16,6 +16,12 @@ export function civilDate(c: CivilDateTime): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+/** Local calendar date of a UTC timestamp given a google-duration offset such as "-14400s". */
+export function localDate(timestamp: string, utcOffset?: string): string {
+  const offsetSeconds = utcOffset ? parseFloat(utcOffset) || 0 : 0;
+  return new Date(Date.parse(timestamp) + offsetSeconds * 1000).toISOString().slice(0, 10);
+}
+
 function toCivil(date: string): CivilDateTime {
   const [year, month, day] = date.split("-").map(Number);
   return { date: { year, month, day }, time: { hours: 0, minutes: 0, seconds: 0 } };
@@ -84,12 +90,21 @@ export async function dailyRollUp(token: string, dataType: string, from: string,
   return out;
 }
 
+// The reconcile endpoint omits the civil* fields in practice (they're documented as output-only),
+// so callers derive local dates from the UTC time + offset when civil times are missing.
 type SessionInterval = {
   startTime: string;
   endTime: string;
-  civilStartTime: CivilDateTime;
-  civilEndTime: CivilDateTime;
+  startUtcOffset?: string;
+  endUtcOffset?: string;
+  civilStartTime?: CivilDateTime;
+  civilEndTime?: CivilDateTime;
 };
+
+export const sessionEndDate = (i: SessionInterval) =>
+  i.civilEndTime ? civilDate(i.civilEndTime) : localDate(i.endTime, i.endUtcOffset);
+export const sessionStartDate = (i: SessionInterval) =>
+  i.civilStartTime ? civilDate(i.civilStartTime) : localDate(i.startTime, i.startUtcOffset);
 
 export type SleepSession = {
   interval: SessionInterval;
