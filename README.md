@@ -4,7 +4,7 @@ Friendly sleep and activity leaderboards for friends who wear Fitbit / Google tr
 Google Health only lets you compare steps and cardio load. Rested adds sleep, Zone Minutes,
 workouts, calories, distance and floors.
 
-It's an installable web app (PWA): open it in Safari or Chrome and **Add to Home Screen**.
+Live at **https://rested-tau.vercel.app**. It's an installable web app (PWA): open it in Safari or Chrome and **Add to Home Screen**.
 No App Store needed.
 
 ## How it works
