@@ -1,107 +1,30 @@
 import "server-only";
 import { sql } from "./db";
 import { getAccessToken, NotConnectedError } from "./google";
-import {
-  civilDate,
-  dailyRollUp,
-  HealthApiError,
-  listExercise,
-  listSleep,
-  sessionEndDate,
-  sessionStartDate,
-  type DailyRollup,
-  type SleepSession,
-} from "./health";
-import { addDays, dateRange, daysBetween, todayIn } from "./dates";
+import { dailyRollUp, HealthApiError, listExercise, listSleep } from "./health";
+import { addDays, daysBetween, todayIn } from "./dates";
+import { mapDays, mapWorkouts, type Row } from "./sync-map";
+import { overtaken } from "./awards";
+import { formatDuration } from "./metrics";
+import { notify } from "./push";
 
-export const BACKFILL_DAYS = 30;
+export const BACKFILL_DAYS = 89;
 const MAX_RANGE_DAYS = 89; // dailyRollUp accepts at most 90 days
-
-type Row = {
-  steps: number | null;
-  azm: number | null;
-  active_kcal: number | null;
-  floors: number | null;
-  distance_m: number | null;
-  workouts: number | null;
-  workout_minutes: number | null;
-  sleep_minutes: number | null;
-  deep_minutes: number | null;
-  rem_minutes: number | null;
-  light_minutes: number | null;
-  awake_minutes: number | null;
-  in_bed_minutes: number | null;
-  sleep_efficiency: number | null;
-  bedtime: string | null;
-  wake_time: string | null;
-};
-
-const emptyRow = (): Row => ({
-  steps: null,
-  azm: null,
-  active_kcal: null,
-  floors: null,
-  distance_m: null,
-  workouts: null,
-  workout_minutes: null,
-  sleep_minutes: null,
-  deep_minutes: null,
-  rem_minutes: null,
-  light_minutes: null,
-  awake_minutes: null,
-  in_bed_minutes: null,
-  sleep_efficiency: null,
-  bedtime: null,
-  wake_time: null,
-});
-
-const num = (s: string | number | undefined) => (s == null ? null : Number(s));
-
-function byDate(points: DailyRollup[]) {
-  return new Map(points.map((p) => [civilDate(p.civilStartTime), p]));
-}
-
-function stageMinutes(s: SleepSession, type: string): number | null {
-  const stage = s.summary?.stagesSummary?.find((x) => x.type === type);
-  return stage ? Number(stage.minutes ?? 0) : null;
-}
-
-/** Picks the night's main sleep: Google's `mainSleep` flag, else the longest non-nap. */
-function mainSleepByDate(sessions: SleepSession[]) {
-  const out = new Map<string, SleepSession>();
-  for (const s of sessions) {
-    if (s.metadata?.nap) continue;
-    const date = sessionEndDate(s.interval);
-    const cur = out.get(date);
-    const asleep = Number(s.summary?.minutesAsleep ?? 0);
-    if (
-      !cur ||
-      (s.metadata?.mainSleep && !cur.metadata?.mainSleep) ||
-      (!!s.metadata?.mainSleep === !!cur.metadata?.mainSleep &&
-        asleep > Number(cur.summary?.minutesAsleep ?? 0))
-    ) {
-      out.set(date, s);
-    }
-  }
-  return out;
-}
-
-function durationMinutes(d: string | undefined, start: string, end: string) {
-  if (d?.endsWith("s")) return Math.round(parseFloat(d) / 60);
-  return Math.round((Date.parse(end) - Date.parse(start)) / 60_000);
-}
 
 export type SyncResult = { ok: true; from: string; to: string } | { ok: false; error: string };
 
 /**
- * Pulls [from, to] from Google Health and upserts one daily_metrics row per date.
- * With no range, syncs from a couple of days before the last sync (or a 30-day backfill).
+ * Pulls [from, to] from Google Health and upserts one daily_metrics row per date, plus the
+ * workouts in that span. With no range, syncs from a couple of days before the last sync
+ * (or a ~3-month backfill on the first sync).
  */
 export async function syncUser(
   userId: string,
   range?: { from: string; to: string },
 ): Promise<SyncResult> {
-  const [u] = await sql`SELECT timezone, last_synced_at FROM users WHERE id = ${userId}`;
+  const [u] = await sql`
+    SELECT timezone, last_synced_at, COALESCE(NULLIF(trim(nickname), ''), split_part(name, ' ', 1)) AS short
+    FROM users WHERE id = ${userId}`;
   if (!u) return { ok: false, error: "No such user" };
   const today = todayIn(u.timezone);
 
@@ -132,85 +55,32 @@ export async function syncUser(
       listExercise(token, from, to),
     ]);
 
-    const stepsBy = byDate(steps);
-    const distBy = byDate(distance);
-    const floorsBy = byDate(floors);
-    const energyBy = byDate(energy);
-    const azmBy = byDate(azm);
-    const sleepBy = mainSleepByDate(sleep);
+    const workouts = mapWorkouts(exercise);
+    const { dates, rows } = mapDays(from, to, { steps, distance, floors, energy, azm, sleep, workouts });
 
-    const workoutsBy = new Map<string, { count: number; minutes: number }>();
-    for (const e of exercise) {
-      const date = sessionStartDate(e.interval);
-      const w = workoutsBy.get(date) ?? { count: 0, minutes: 0 };
-      w.count += 1;
-      w.minutes += durationMinutes(e.activeDuration, e.interval.startTime, e.interval.endTime);
-      workoutsBy.set(date, w);
-    }
+    // Today's standing before this sync, for "you got passed" notifications.
+    const coversToday = dates.includes(today);
+    const [before] = coversToday
+      ? await sql<{ steps: number | null; sleep_minutes: number | null }>`
+          SELECT steps, sleep_minutes FROM daily_metrics WHERE user_id = ${userId} AND date = ${today}::date`
+      : [];
 
-    const dates = dateRange(from, to);
-    const rows = dates.map((date) => {
-      const r = emptyRow();
-      r.steps = num(stepsBy.get(date)?.steps?.countSum);
-      const mm = num(distBy.get(date)?.distance?.millimetersSum);
-      r.distance_m = mm == null ? null : mm / 1000;
-      r.floors = num(floorsBy.get(date)?.floors?.countSum);
-      const kcal = energyBy.get(date)?.activeEnergyBurned?.kcalSum;
-      r.active_kcal = kcal == null ? null : Math.round(kcal);
-      const z = azmBy.get(date)?.activeZoneMinutes;
-      r.azm = z
-        ? Number(z.sumInFatBurnHeartZone ?? 0) +
-          Number(z.sumInCardioHeartZone ?? 0) +
-          Number(z.sumInPeakHeartZone ?? 0)
-        : null;
-      const w = workoutsBy.get(date);
-      r.workouts = w?.count ?? (r.steps != null ? 0 : null);
-      r.workout_minutes = w?.minutes ?? (r.steps != null ? 0 : null);
-
-      const s = sleepBy.get(date);
-      if (s?.summary) {
-        const asleep = Number(s.summary.minutesAsleep ?? 0);
-        const inBed = Number(s.summary.minutesInSleepPeriod ?? 0);
-        r.sleep_minutes = asleep;
-        r.in_bed_minutes = inBed;
-        r.deep_minutes = stageMinutes(s, "DEEP");
-        r.rem_minutes = stageMinutes(s, "REM");
-        r.light_minutes = stageMinutes(s, "LIGHT");
-        r.awake_minutes = Number(s.summary.minutesAwake ?? 0);
-        r.sleep_efficiency = inBed > 0 ? asleep / inBed : null;
-        r.bedtime = s.interval.startTime;
-        r.wake_time = s.interval.endTime;
-      }
-      return r;
-    });
-
-    const col = <K extends keyof Row>(k: K) => rows.map((r) => r[k]);
-    await sql`
-      INSERT INTO daily_metrics (user_id, date, steps, azm, active_kcal, floors, distance_m,
-        workouts, workout_minutes, sleep_minutes, deep_minutes, rem_minutes, light_minutes,
-        awake_minutes, in_bed_minutes, sleep_efficiency, bedtime, wake_time, updated_at)
-      SELECT ${userId}::uuid, * , now() FROM unnest(
-        ${dates}::date[], ${col("steps")}::int[], ${col("azm")}::int[], ${col("active_kcal")}::int[],
-        ${col("floors")}::int[], ${col("distance_m")}::real[], ${col("workouts")}::int[],
-        ${col("workout_minutes")}::int[], ${col("sleep_minutes")}::int[], ${col("deep_minutes")}::int[],
-        ${col("rem_minutes")}::int[], ${col("light_minutes")}::int[], ${col("awake_minutes")}::int[],
-        ${col("in_bed_minutes")}::int[], ${col("sleep_efficiency")}::real[],
-        ${col("bedtime")}::timestamptz[], ${col("wake_time")}::timestamptz[])
-      ON CONFLICT (user_id, date) DO UPDATE SET
-        steps = EXCLUDED.steps, azm = EXCLUDED.azm, active_kcal = EXCLUDED.active_kcal,
-        floors = EXCLUDED.floors, distance_m = EXCLUDED.distance_m, workouts = EXCLUDED.workouts,
-        workout_minutes = EXCLUDED.workout_minutes, sleep_minutes = EXCLUDED.sleep_minutes,
-        deep_minutes = EXCLUDED.deep_minutes, rem_minutes = EXCLUDED.rem_minutes,
-        light_minutes = EXCLUDED.light_minutes, awake_minutes = EXCLUDED.awake_minutes,
-        in_bed_minutes = EXCLUDED.in_bed_minutes, sleep_efficiency = EXCLUDED.sleep_efficiency,
-        bedtime = EXCLUDED.bedtime, wake_time = EXCLUDED.wake_time,
-        updated_at = now()`;
+    await upsertDays(userId, dates, rows);
+    await replaceWorkouts(userId, from, to, workouts);
 
     // Only a full "catch-up" sync advances last_synced_at; webhook syncs cover partial ranges.
     if (!range) {
-      await sql`UPDATE users SET last_synced_at = now(), sync_error = NULL WHERE id = ${userId}`;
+      await sql`
+        UPDATE users SET last_synced_at = now(), last_activity_sync_at = now(), sync_error = NULL
+        WHERE id = ${userId}`;
     } else {
-      await sql`UPDATE users SET sync_error = NULL WHERE id = ${userId}`;
+      await sql`UPDATE users SET last_activity_sync_at = now(), sync_error = NULL WHERE id = ${userId}`;
+    }
+
+    // A first sync is a backfill, not someone pulling ahead, so it never notifies.
+    if (coversToday && u.last_synced_at) {
+      const now = rows[dates.indexOf(today)];
+      await notifyOvertakes(userId, u.short, today, before ?? null, now);
     }
     return { ok: true, from, to };
   } catch (e) {
@@ -226,6 +96,112 @@ export async function syncUser(
     }
     return { ok: false, error };
   }
+}
+
+async function upsertDays(userId: string, dates: string[], rows: Row[]) {
+  const col = <K extends keyof Row>(k: K) => rows.map((r) => r[k]);
+  await sql`
+    INSERT INTO daily_metrics (user_id, date, steps, azm, active_kcal, floors, distance_m,
+      workouts, workout_minutes, sleep_minutes, deep_minutes, rem_minutes, light_minutes,
+      awake_minutes, in_bed_minutes, sleep_efficiency, fall_asleep_minutes, nap_minutes,
+      bed_clock_min, wake_clock_min, sleep_stages, bedtime, wake_time, updated_at)
+    SELECT ${userId}::uuid, *, now() FROM unnest(
+      ${dates}::date[], ${col("steps")}::int[], ${col("azm")}::int[], ${col("active_kcal")}::int[],
+      ${col("floors")}::int[], ${col("distance_m")}::real[], ${col("workouts")}::int[],
+      ${col("workout_minutes")}::int[], ${col("sleep_minutes")}::int[], ${col("deep_minutes")}::int[],
+      ${col("rem_minutes")}::int[], ${col("light_minutes")}::int[], ${col("awake_minutes")}::int[],
+      ${col("in_bed_minutes")}::int[], ${col("sleep_efficiency")}::real[],
+      ${col("fall_asleep_minutes")}::int[], ${col("nap_minutes")}::int[],
+      ${col("bed_clock_min")}::int[], ${col("wake_clock_min")}::int[], ${col("sleep_stages")}::jsonb[],
+      ${col("bedtime")}::timestamptz[], ${col("wake_time")}::timestamptz[])
+    ON CONFLICT (user_id, date) DO UPDATE SET
+      steps = EXCLUDED.steps, azm = EXCLUDED.azm, active_kcal = EXCLUDED.active_kcal,
+      floors = EXCLUDED.floors, distance_m = EXCLUDED.distance_m, workouts = EXCLUDED.workouts,
+      workout_minutes = EXCLUDED.workout_minutes, sleep_minutes = EXCLUDED.sleep_minutes,
+      deep_minutes = EXCLUDED.deep_minutes, rem_minutes = EXCLUDED.rem_minutes,
+      light_minutes = EXCLUDED.light_minutes, awake_minutes = EXCLUDED.awake_minutes,
+      in_bed_minutes = EXCLUDED.in_bed_minutes, sleep_efficiency = EXCLUDED.sleep_efficiency,
+      fall_asleep_minutes = EXCLUDED.fall_asleep_minutes, nap_minutes = EXCLUDED.nap_minutes,
+      bed_clock_min = EXCLUDED.bed_clock_min, wake_clock_min = EXCLUDED.wake_clock_min,
+      sleep_stages = EXCLUDED.sleep_stages, bedtime = EXCLUDED.bedtime, wake_time = EXCLUDED.wake_time,
+      updated_at = now()`;
+}
+
+async function replaceWorkouts(userId: string, from: string, to: string, workouts: ReturnType<typeof mapWorkouts>) {
+  const col = <K extends keyof (typeof workouts)[number]>(k: K) => workouts.map((w) => w[k]);
+  if (workouts.length) {
+    await sql`
+      INSERT INTO workouts (user_id, start_time, local_date, exercise_type, display_name, duration_min,
+        kcal, distance_m, steps, avg_hr, azm)
+      SELECT ${userId}::uuid, * FROM unnest(
+        ${col("start_time")}::timestamptz[], ${col("local_date")}::date[], ${col("exercise_type")}::text[],
+        ${col("display_name")}::text[], ${col("duration_min")}::int[], ${col("kcal")}::int[],
+        ${col("distance_m")}::real[], ${col("steps")}::int[], ${col("avg_hr")}::int[], ${col("azm")}::int[])
+      ON CONFLICT (user_id, start_time) DO UPDATE SET
+        local_date = EXCLUDED.local_date, exercise_type = EXCLUDED.exercise_type,
+        display_name = EXCLUDED.display_name, duration_min = EXCLUDED.duration_min, kcal = EXCLUDED.kcal,
+        distance_m = EXCLUDED.distance_m, steps = EXCLUDED.steps, avg_hr = EXCLUDED.avg_hr, azm = EXCLUDED.azm`;
+  }
+  // Sessions deleted in Google Health disappear here too.
+  await sql`
+    DELETE FROM workouts
+    WHERE user_id = ${userId} AND local_date BETWEEN ${from}::date AND ${to}::date
+      AND NOT (start_time = ANY(${col("start_time")}::timestamptz[]))`;
+}
+
+async function notifyOvertakes(
+  userId: string,
+  short: string,
+  today: string,
+  before: { steps: number | null; sleep_minutes: number | null } | null,
+  now: Row,
+) {
+  const friends = await sql`
+    SELECT f.friend_id AS id, d.steps, d.sleep_minutes
+    FROM friendships f
+    LEFT JOIN daily_metrics d ON d.user_id = f.friend_id AND d.date = ${today}::date
+    WHERE f.user_id = ${userId}`;
+  if (!friends.length) return;
+
+  const stepsPassed = overtaken(
+    before?.steps ?? null,
+    now.steps,
+    friends.map((f) => ({ id: f.id, value: f.steps })),
+  );
+  const sleepPassed = overtaken(
+    before?.sleep_minutes ?? null,
+    now.sleep_minutes,
+    friends.map((f) => ({ id: f.id, value: f.sleep_minutes })),
+  );
+  const byId = new Map(friends.map((f) => [f.id, f]));
+  await Promise.all([
+    ...stepsPassed.map((id) =>
+      notify(
+        id,
+        "passed",
+        {
+          title: `${short} just passed you`,
+          body: `${short} is at ${now.steps!.toLocaleString("en-US")} steps today. You're at ${Number(byId.get(id)!.steps).toLocaleString("en-US")}.`,
+          url: `/f/${userId}`,
+          tag: `passed-steps-${userId}`,
+        },
+        `passed:steps:${today}:${userId}`,
+      ),
+    ),
+    ...sleepPassed.map((id) =>
+      notify(
+        id,
+        "passed",
+        {
+          title: `${short} out-slept you`,
+          body: `${short} slept ${formatDuration(now.sleep_minutes!)} last night, ahead of your ${formatDuration(byId.get(id)!.sleep_minutes)}.`,
+          url: `/f/${userId}`,
+          tag: `passed-sleep-${userId}`,
+        },
+        `passed:sleep:${today}:${userId}`,
+      ),
+    ),
+  ]);
 }
 
 function daysSince(ts: string | Date) {

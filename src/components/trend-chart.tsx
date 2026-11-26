@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { memberColor } from "./avatar";
 import { Segmented } from "./segmented";
 import { addDays, dateRange } from "@/lib/dates";
-import { formatDuration, type DayRow, type Metric } from "@/lib/metrics";
+import { formatBedClock, formatDuration, type DayRow, type Metric } from "@/lib/metrics";
 import type { BoardMember } from "./board";
 
 const HEIGHT = 210;
@@ -21,6 +21,9 @@ function niceStep(span: number, count: number) {
 }
 
 function tickLabel(metric: Metric, v: number) {
+  // "10:30 PM" → "10:30p", "11:00 PM" → "11p"
+  if (metric.key === "bedtime") return formatBedClock(v).replace(":00", "").replace(" AM", "a").replace(" PM", "p");
+  if (metric.key === "efficiency") return `${Math.round(v)}%`;
   if (metric.format === formatDuration) {
     return v % 60 === 0 ? `${v / 60}h` : `${(v / 60).toFixed(1)}h`;
   }
@@ -116,7 +119,7 @@ export function TrendChart({
   const endLabels = paths
     .map((p) => {
       const last = p.values.findLastIndex((v) => v != null);
-      const name = p.member.id === viewerId ? "You" : p.member.name.split(" ")[0];
+      const name = p.member.id === viewerId ? "You" : p.member.name;
       return last < 0 ? null : { id: p.member.id, name, ly: y(p.values[last]!), lx: x(last) };
     })
     .filter((l): l is NonNullable<typeof l> => !!l)
@@ -268,7 +271,7 @@ export function TrendChart({
               <div className="tip-row" key={m.id}>
                 <span className="key" style={{ background: memberColor(m.slot) }} />
                 <span className="tip-val">{v == null ? "—" : `${metric.format(v)}${metric.unit ? ` ${metric.unit}` : ""}`}</span>
-                <span className="tip-name">{m.id === viewerId ? "You" : m.name.split(" ")[0]}</span>
+                <span className="tip-name">{m.id === viewerId ? "You" : m.name}</span>
               </div>
             ))}
           </div>
@@ -286,7 +289,7 @@ export function TrendChart({
             onClick={() => toggle(m.id)}
           >
             <span className="key" />
-            {m.id === viewerId ? "You" : m.name.split(" ")[0]}
+            {m.id === viewerId ? "You" : m.name}
           </button>
         ))}
       </div>
@@ -306,7 +309,7 @@ export function TrendChart({
               <tr>
                 <th>Date</th>
                 {series.map((s) => (
-                  <th key={s.member.id}>{s.member.name.split(" ")[0]}</th>
+                  <th key={s.member.id}>{s.member.name}</th>
                 ))}
               </tr>
             </thead>

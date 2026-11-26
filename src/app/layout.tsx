@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { startupImages } from "@/lib/splash";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
   title: "Rested",
   description: "Compete with friends on sleep and activity from Google Health.",
   applicationName: "Rested",
@@ -9,6 +11,7 @@ export const metadata: Metadata = {
     capable: true,
     title: "Rested",
     statusBarStyle: "black-translucent",
+    startupImage: startupImages,
   },
   icons: { apple: "/pwa-icon/180" },
   formatDetection: { telephone: false },

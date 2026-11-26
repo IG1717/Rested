@@ -39,7 +39,7 @@ export function NavBar({
         <div className="navbar-inner">
           <div className="navbar-left">
             {back && (
-              <Link href={back.href} className="nav-btn back">
+              <Link href={back.href} transitionTypes={["nav-back"]} className="nav-btn back">
                 <ChevronLeft />
                 {back.label}
               </Link>

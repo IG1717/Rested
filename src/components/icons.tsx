@@ -62,6 +62,19 @@ export const TrophyIcon = ({ filled, ...p }: P & { filled?: boolean }) => (
   </svg>
 );
 
+export const CrownIcon = (p: P) => (
+  <svg viewBox="0 0 16 12" aria-hidden {...p}>
+    <path d="M1.5 10.5h13L15 3l-4 3-3-5-3 5-4-3z" fill="currentColor" />
+  </svg>
+);
+
+export const QrIcon = (p: P) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden {...p}>
+    <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M14 14h2.5v2.5H14zM17.5 17.5H20V20h-2.5zM14 18.5V20M20 14v1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
 export const PersonIcon = ({ filled, ...p }: P & { filled?: boolean }) => (
   <svg viewBox="0 0 28 28" aria-hidden {...p}>
     <circle cx="14" cy="14" r="11.5" fill="none" stroke="currentColor" strokeWidth="1.8" />

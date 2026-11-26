@@ -47,6 +47,8 @@ export type CurrentUser = {
   name: string;
   email: string;
   avatarUrl: string | null;
+  nickname: string | null;
+  onboarded: boolean;
   connected: boolean;
   lastSyncedAt: string | null;
   syncError: string | null;
@@ -56,8 +58,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const uid = await getSessionUserId();
   if (!uid) return null;
   const rows = await sql`
-    SELECT id, name, email, avatar_url, refresh_token_enc IS NOT NULL AS connected,
-           last_synced_at, sync_error
+    SELECT id, name, email, avatar_url, nickname, onboarded_at IS NOT NULL AS onboarded,
+           refresh_token_enc IS NOT NULL AS connected, last_synced_at, sync_error
     FROM users WHERE id = ${uid}`;
   const u = rows[0];
   if (!u) return null;
@@ -66,6 +68,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     name: u.name,
     email: u.email,
     avatarUrl: u.avatar_url,
+    nickname: u.nickname,
+    onboarded: u.onboarded,
     connected: u.connected,
     lastSyncedAt: u.last_synced_at ? new Date(u.last_synced_at).toISOString() : null,
     syncError: u.sync_error,

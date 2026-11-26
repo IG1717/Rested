@@ -40,9 +40,12 @@ export default function PrivacyPage() {
       <h2>What we store</h2>
       <p>
         Rested stores one summary row per day: totals such as steps and Zone Minutes, and nightly sleep figures such
-        as time asleep and minutes in deep, REM and light sleep. It also stores your friend list and an
-        encrypted Google access token so it can keep your stats up to date. Raw minute-by-minute data is not kept.
-        Data is held in a Supabase Postgres database and served by Vercel, both in the United States.
+        as time asleep, bedtime, wake time, minutes in deep, REM and light sleep, and a coarse timeline of your sleep
+        stages. It keeps a list of your workouts (type, duration, distance, calories and average heart rate). It also
+        stores your friend list, the emoji reactions you send and receive, your notification settings, the push
+        subscription for each device where you turn notifications on, and an encrypted Google access token so it can
+        keep your stats up to date. Raw minute-by-minute data is not kept. Data is held in a Supabase Postgres database
+        and served by Vercel, both in the United States.
       </p>
 
       <h2>Who can see it</h2>

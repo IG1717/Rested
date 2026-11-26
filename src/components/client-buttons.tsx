@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useSync } from "./sync-provider";
+import { useToast } from "./toast";
 
 /** Share sheet on phones, clipboard elsewhere. */
 export function ShareInvite({ url, name }: { url: string; name: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(t);
-  }, [copied]);
+  const toast = useToast();
 
   return (
     <button
@@ -29,11 +25,11 @@ export function ShareInvite({ url, name }: { url: string; name: string }) {
         }
         try {
           await navigator.clipboard.writeText(url);
-          setCopied(true);
+          toast("Link copied");
         } catch {}
       }}
     >
-      {copied ? "Link Copied" : "Share Invite Link"}
+      Share My Link
     </button>
   );
 }
@@ -66,14 +62,20 @@ export function ConfirmSubmit({ label, confirmLabel }: { label: string; confirmL
 }
 
 /** Compact two-tap "Remove" for a friend row. The second tap submits the surrounding form. */
-export function RemoveFriendButton() {
+export function RemoveFriendButton({ name }: { name: string }) {
   const [armed, setArmed] = useState(false);
   const { pending } = useFormStatus();
+  const toast = useToast();
+  const wasPending = useRef(false);
   useEffect(() => {
     if (!armed) return;
     const t = setTimeout(() => setArmed(false), 4000);
     return () => clearTimeout(t);
   }, [armed]);
+  useEffect(() => {
+    if (wasPending.current && !pending) toast(`Removed ${name}`);
+    wasPending.current = pending;
+  }, [pending, name, toast]);
 
   return (
     <button
@@ -95,6 +97,12 @@ export function RemoveFriendButton() {
 
 export function SyncNowButton() {
   const { syncing, syncNow } = useSync();
+  const toast = useToast();
+  const was = useRef(false);
+  useEffect(() => {
+    if (was.current && !syncing) toast("Up to date");
+    was.current = syncing;
+  }, [syncing, toast]);
   return (
     <button type="button" className="row tinted" onClick={syncNow} disabled={syncing}>
       <div className="row-main">{syncing ? "Syncing…" : "Sync Now"}</div>

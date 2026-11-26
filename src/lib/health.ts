@@ -36,18 +36,29 @@ export class HealthApiError extends Error {
   }
 }
 
+const RETRYABLE = new Set([429, 500, 503, 504]);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Calls the API, retrying rate limits and transient errors with exponential backoff + jitter. */
 async function call<T>(token: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-    },
-    cache: "no-store",
-  });
-  if (!res.ok) throw new HealthApiError(res.status, await res.text());
-  return res.json() as Promise<T>;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      },
+      cache: "no-store",
+    });
+    if (res.ok) return res.json() as Promise<T>;
+    if (attempt < 3 && RETRYABLE.has(res.status)) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      await sleep(retryAfter > 0 ? retryAfter * 1000 : 2 ** attempt * 500 + Math.random() * 400);
+      continue;
+    }
+    throw new HealthApiError(res.status, await res.text());
+  }
 }
 
 export function getIdentity(token: string) {
@@ -106,22 +117,37 @@ export const sessionEndDate = (i: SessionInterval) =>
 export const sessionStartDate = (i: SessionInterval) =>
   i.civilStartTime ? civilDate(i.civilStartTime) : localDate(i.startTime, i.startUtcOffset);
 
+export type SleepStage = { startTime: string; endTime: string; type: string };
+
 export type SleepSession = {
   interval: SessionInterval;
   type?: "CLASSIC" | "STAGES" | "SLEEP_TYPE_UNSPECIFIED";
   metadata?: { mainSleep?: boolean; nap?: boolean; processed?: boolean };
+  stages?: SleepStage[];
   summary?: {
     minutesAsleep?: string;
     minutesAwake?: string;
     minutesInSleepPeriod?: string;
+    minutesToFallAsleep?: string;
     stagesSummary?: { type: string; minutes?: string; count?: string }[];
   };
 };
+
+// Numeric fields may arrive as strings (int64) or numbers.
+type Num = string | number;
 
 export type ExerciseSession = {
   interval: SessionInterval;
   activeDuration?: string; // e.g. "1830s"
   displayName?: string;
+  exerciseType?: string; // e.g. "RUNNING"
+  metricsSummary?: {
+    caloriesKcal?: Num;
+    distanceMillimeters?: Num;
+    steps?: Num;
+    averageHeartRateBeatsPerMinute?: Num;
+    activeZoneMinutes?: Num;
+  };
 };
 
 async function reconcileAll<T>(token: string, dataType: string, filter: string, pageSize: number) {

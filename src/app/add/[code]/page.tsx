@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { areFriends, getInviter } from "@/lib/friends";
 import { getCurrentUser } from "@/lib/session";
@@ -5,6 +6,18 @@ import { addFriend } from "@/app/actions";
 import { Welcome } from "@/components/welcome";
 import { Avatar } from "@/components/avatar";
 import { SubmitButton } from "@/components/client-buttons";
+
+export async function generateMetadata({ params }: PageProps<"/add/[code]">): Promise<Metadata> {
+  const inviter = await getInviter((await params).code);
+  const first = inviter?.name.split(" ")[0];
+  return first
+    ? {
+        title: `Compete with ${first} on Rested`,
+        description: `${first} wants to compare sleep and activity with you. Who slept best last night?`,
+        openGraph: { title: `Compete with ${first} on Rested`, description: "Sleep and activity leaderboards for friends." },
+      }
+    : { title: "Rested" };
+}
 
 export default async function AddFriendPage({ params }: PageProps<"/add/[code]">) {
   const { code } = await params;

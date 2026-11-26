@@ -1,5 +1,5 @@
--- Rested database schema (Supabase Postgres).
--- The app connects as the `postgres` role through the transaction pooler, which bypasses RLS.
+-- Rested database schema (Supabase Postgres). Apply migrations in order.
+-- The app connects as the `rested_app` role (owner of every table, so RLS does not apply to it).
 -- RLS is on with no policies so the Supabase Data API (anon/authenticated keys) can't read anything.
 
 CREATE TABLE users (
@@ -59,3 +59,12 @@ CREATE INDEX daily_metrics_date_idx ON daily_metrics(date);
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_metrics ENABLE ROW LEVEL SECURITY;
+
+-- App login role (password set out of band; it's the one in DATABASE_URL). Owners bypass RLS.
+-- CREATE ROLE rested_app LOGIN PASSWORD '...';
+GRANT rested_app TO postgres;
+GRANT USAGE, CREATE ON SCHEMA public TO rested_app;
+ALTER TABLE users OWNER TO rested_app;
+ALTER TABLE friendships OWNER TO rested_app;
+ALTER TABLE daily_metrics OWNER TO rested_app;
+REVOKE ALL ON users, friendships, daily_metrics FROM anon, authenticated;

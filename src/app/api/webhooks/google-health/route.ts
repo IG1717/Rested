@@ -17,13 +17,14 @@ function authorized(header: string | null) {
 
 type Notification = { healthUserId?: string; dataType?: string; intervals?: unknown[] };
 
-// Steps/distance/floors/AZM notifications arrive every few minutes per user, all day. Handling
-// them kept the Neon compute from ever scaling to zero and exhausted the free-plan compute quota
-// (Nov 2026). Only sleep and workouts sync from webhooks; activity totals refresh when anyone
-// opens the app (see /api/sync) and in the daily cron.
-const REALTIME_TYPES = ["sleep", "exercise"];
-const isRealtime = (dataType?: string) =>
-  !!dataType && REALTIME_TYPES.some((t) => dataType.toLowerCase().includes(t));
+// Sleep and workouts sync as soon as Google tells us. Steps/distance/floors/AZM notifications
+// arrive every few minutes per user all day, so those are debounced per user: at most one
+// activity sync every ACTIVITY_DEBOUNCE. That keeps leaderboards (and "you got passed" pushes)
+// close to real time without syncing on every ping.
+const IMMEDIATE_TYPES = ["sleep", "exercise"];
+const ACTIVITY_DEBOUNCE = "10 minutes";
+const isImmediate = (dataType?: string) =>
+  !!dataType && IMMEDIATE_TYPES.some((t) => dataType.toLowerCase().includes(t));
 
 export async function POST(request: Request) {
   if (!process.env.WEBHOOK_SECRET || !authorized(request.headers.get("authorization"))) {
@@ -35,25 +36,31 @@ export async function POST(request: Request) {
   // A single notification arrives as { data: {...} }; batches as an array.
   const items: Notification[] = (Array.isArray(body) ? body : [body])
     .map((b) => b?.data ?? b)
-    .filter((n): n is Notification => !!n?.healthUserId && isRealtime(n.dataType));
-  // Acknowledge without touching the database so the compute can stay asleep.
+    .filter((n): n is Notification => !!n?.healthUserId);
   if (!items.length) return new Response(null, { status: 204 });
 
   // Collect the civil dates each user's changes touch, then re-sync just that span.
-  const spans = new Map<string, { from: string; to: string }>();
+  const spans = new Map<string, { from: string; to: string; immediate: boolean }>();
   for (const n of items) {
     const dates: string[] = JSON.stringify(n.intervals ?? []).match(/\d{4}-\d{2}-\d{2}/g) ?? [];
     if (!dates.length) continue;
     const prev = spans.get(n.healthUserId!);
     if (prev) dates.push(prev.from, prev.to);
     dates.sort();
-    spans.set(n.healthUserId!, { from: dates[0]!, to: dates[dates.length - 1]! });
+    spans.set(n.healthUserId!, {
+      from: dates[0]!,
+      to: dates[dates.length - 1]!,
+      immediate: (prev?.immediate ?? false) || isImmediate(n.dataType),
+    });
   }
 
   after(async () => {
-    for (const [healthUserId, span] of spans) {
-      const [u] = await sql`SELECT id FROM users WHERE health_user_id = ${healthUserId}`;
-      if (u) await syncUser(u.id, span);
+    for (const [healthUserId, { from, to, immediate }] of spans) {
+      const [u] = await sql`
+        SELECT id, last_activity_sync_at IS NULL
+          OR last_activity_sync_at < now() - ${ACTIVITY_DEBOUNCE}::interval AS due
+        FROM users WHERE health_user_id = ${healthUserId}`;
+      if (u && (immediate || u.due)) await syncUser(u.id, { from, to });
     }
   });
 
