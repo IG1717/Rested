@@ -5,7 +5,7 @@ import { memberColor } from "./avatar";
 import { Segmented } from "./segmented";
 import { addDays, dateRange } from "@/lib/dates";
 import { formatDuration, type DayRow, type Metric } from "@/lib/metrics";
-import type { BoardMember } from "./group-board";
+import type { BoardMember } from "./board";
 
 const HEIGHT = 210;
 const PAD = { top: 14, right: 64, bottom: 24, left: 40 };

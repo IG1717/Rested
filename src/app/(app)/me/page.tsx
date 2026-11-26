@@ -14,7 +14,7 @@ export default async function MePage() {
       <section className="content">
         <div className="list">
           <div className="row" style={{ minHeight: 84 }}>
-            <Avatar name={user.name} url={user.avatarUrl} size="lg" slot={6} />
+            <Avatar name={user.name} url={user.avatarUrl} size="lg" slot={0} />
             <div className="row-main">
               <div className="row-title" style={{ fontSize: "1.25rem", fontWeight: 600 }}>
                 {user.name}
@@ -78,7 +78,7 @@ export default async function MePage() {
           <ConfirmSubmit label="Delete My Account" confirmLabel="Tap Again to Delete Everything" />
         </form>
         <p className="section-footer">
-          Removes your stats from every group, deletes your account, and revokes Rested&apos;s access to
+          Removes your stats from your friends’ leaderboards, deletes your account, and revokes Rested&apos;s access to
           your Google Health data. <a href="/privacy" style={{ color: "var(--tint)" }}>Privacy Policy</a>
         </p>
       </section>

@@ -6,9 +6,9 @@ import { syncUser } from "@/lib/sync";
 export const maxDuration = 60;
 
 const MIN_INTERVAL_MS = 5 * 60 * 1000;
-const GROUPMATE_STALE = "15 minutes";
+const FRIEND_STALE = "15 minutes";
 
-// Called by the app on open/foreground. Syncs the viewer, plus any groupmates whose data is
+// Called by the app on open/foreground. Syncs the viewer, plus any friends whose data is
 // stale, so leaderboards are current whenever someone looks. Activity webhooks are ignored
 // (see the webhook route), so this is the main path for fresh steps/AZM during the day.
 export async function POST(request: Request) {
@@ -25,12 +25,10 @@ export async function POST(request: Request) {
   const selfDue = force || Date.now() - last >= MIN_INTERVAL_MS;
 
   const mates = await sql`
-    SELECT DISTINCT u.id FROM group_members me
-    JOIN group_members gm ON gm.group_id = me.group_id
-    JOIN users u ON u.id = gm.user_id
-    WHERE me.user_id = ${uid} AND u.id <> ${uid}
+    SELECT u.id FROM friendships f JOIN users u ON u.id = f.friend_id
+    WHERE f.user_id = ${uid}
       AND u.refresh_token_enc IS NOT NULL
-      AND (u.last_synced_at IS NULL OR u.last_synced_at < now() - ${GROUPMATE_STALE}::interval)`;
+      AND (u.last_synced_at IS NULL OR u.last_synced_at < now() - ${FRIEND_STALE}::interval)`;
 
   if (!selfDue && !mates.length) return NextResponse.json({ synced: false });
 

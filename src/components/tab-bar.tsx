@@ -2,22 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PeopleIcon, PersonIcon } from "./icons";
+import { PeopleIcon, PersonIcon, TrophyIcon } from "./icons";
+
+const TABS = [
+  { href: "/", label: "Leaderboard", Icon: TrophyIcon },
+  { href: "/friends", label: "Friends", Icon: PeopleIcon },
+  { href: "/me", label: "You", Icon: PersonIcon },
+] as const;
 
 export function TabBar() {
   const path = usePathname();
-  const onMe = path.startsWith("/me");
   return (
     <nav className="tabbar" aria-label="Tabs">
       <div className="tabbar-inner">
-        <Link href="/" className="tab" aria-current={!onMe ? "page" : undefined}>
-          <PeopleIcon filled={!onMe} />
-          Groups
-        </Link>
-        <Link href="/me" className="tab" aria-current={onMe ? "page" : undefined}>
-          <PersonIcon filled={onMe} />
-          You
-        </Link>
+        {TABS.map(({ href, label, Icon }) => {
+          const active = href === "/" ? path === "/" : path.startsWith(href);
+          return (
+            <Link key={href} href={href} className="tab" aria-current={active ? "page" : undefined}>
+              <Icon filled={active} />
+              {label}
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

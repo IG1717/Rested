@@ -14,14 +14,15 @@ No App Store needed.
   notifications to `/api/webhooks/google-health` when new data lands. The app also syncs when opened,
   and a daily Vercel Cron job (`/api/cron/sync`) catches anything missed. Each sync rolls the data up
   into one `daily_metrics` row per person per day.
-- **Groups** are invite-link based. Everyone in a group sees everyone's stats.
+- **Friends**: everyone has a personal friend link (`/add/<code>`). Opening it makes you mutual friends,
+  and your leaderboard is you plus your friends. Friendships are stored in both directions in `friendships`.
 - **Sleep** is ranked on time asleep and on deep, REM and light minutes, all as reported by Google Health.
   Google's own Sleep Score isn't available through the API, so Rested doesn't invent one. Each night counts
   toward the day you woke up.
 
 ## Stack
 
-Next.js 16 (App Router) on Vercel · Neon Postgres (`db/schema.sql`) · Google OAuth + Google Health API v4.
+Next.js 16 (App Router) on Vercel · Supabase Postgres via the transaction pooler (`db/schema.sql`, `postgres` driver) · Google OAuth + Google Health API v4.
 
 ## Local development
 

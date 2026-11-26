@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
-import { listGroups } from "@/lib/groups";
+import { getCircle, getMetrics } from "@/lib/friends";
+import { sql } from "@/lib/db";
+import { addDays, todayIn } from "@/lib/dates";
 import { NavBar } from "@/components/nav-bar";
 import { Welcome } from "@/components/welcome";
-import { ChevronRight, PlusIcon } from "@/components/icons";
+import { Board } from "@/components/board";
+import { ChevronRight, PersonAddIcon } from "@/components/icons";
 import { SyncStatus } from "@/components/sync-provider";
+
+const HISTORY_DAYS = 120;
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const user = await getCurrentUser();
@@ -18,50 +23,49 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     );
   }
 
-  const groups = await listGroups(user.id);
+  const [people, [{ timezone }]] = await Promise.all([
+    getCircle(user.id),
+    sql`SELECT timezone FROM users WHERE id = ${user.id}`,
+  ]);
+  const today = todayIn(timezone);
+  const earliest = addDays(today, -HISTORY_DAYS);
+  const rows = await getMetrics(
+    people.map((p) => p.id),
+    earliest,
+  );
+  const friendCount = people.length - 1;
 
   return (
     <>
       <NavBar
-        title="Groups"
+        title="Leaderboard"
         right={
-          <Link href="/groups/new" className="nav-btn" aria-label="New group">
-            <PlusIcon />
+          <Link href="/friends" className="nav-btn" aria-label="Add friends">
+            <PersonAddIcon />
           </Link>
         }
       />
-      {groups.length === 0 ? (
-        <div className="content">
-          <div className="empty">
-            <div className="big-emoji">🛌</div>
-            <h2>No groups yet</h2>
-            <p>Create a group and send the invite link to your friends. They&apos;ll show up on the leaderboard as soon as they join.</p>
-          </div>
-          <Link href="/groups/new" className="btn btn-primary">
-            Create a Group
-          </Link>
-          <p className="section-footer" style={{ textAlign: "center" }}>
-            Got an invite? Open the link your friend sent you.
-          </p>
-        </div>
-      ) : (
-        <section className="section content">
-          <div className="list" style={{ "--sep-inset": "64px" } as React.CSSProperties}>
-            {groups.map((g) => (
-              <Link key={g.id} href={`/g/${g.id}`} className="row">
-                <span className="emoji-tile">{g.emoji}</span>
-                <div className="row-main">
-                  <div className="row-title">{g.name}</div>
-                  <div className="row-sub">
-                    {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
-                  </div>
-                </div>
-                <ChevronRight />
-              </Link>
-            ))}
+      {friendCount === 0 && (
+        <section className="content" style={{ marginBottom: 16 }}>
+          <div className="list">
+            <Link href="/friends" className="row">
+              <span className="emoji-tile">👋</span>
+              <div className="row-main">
+                <div className="row-title">Add your friends</div>
+                <div className="row-sub">Share your link. Once they open it, they show up here.</div>
+              </div>
+              <ChevronRight />
+            </Link>
           </div>
         </section>
       )}
+      <Board
+        members={people.map(({ id, name, avatarUrl, slot }) => ({ id, name, avatarUrl, slot }))}
+        rows={rows}
+        viewerId={user.id}
+        today={today}
+        earliest={earliest}
+      />
       <SyncStatus lastSyncedAt={user.lastSyncedAt} />
     </>
   );

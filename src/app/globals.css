@@ -486,6 +486,27 @@ button.row:active {
   pointer-events: none;
 }
 
+.pill-btn {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  background: var(--fill);
+  color: var(--tint);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.pill-btn[data-armed="true"] {
+  background: var(--danger);
+  color: #fff;
+}
+
+.pill-btn[disabled] {
+  opacity: 0.5;
+}
+
 .btn-google {
   background: var(--card);
   color: var(--label);

@@ -47,6 +47,21 @@ export const PeopleIcon = ({ filled, ...p }: P & { filled?: boolean }) => (
   </svg>
 );
 
+export const PersonAddIcon = (p: P) => (
+  <svg viewBox="0 0 28 28" fill="none" aria-hidden {...p}>
+    <circle cx="11" cy="9" r="4.2" stroke="currentColor" strokeWidth="1.9" />
+    <path d="M3.5 22.5c0-4 3.3-6.7 7.5-6.7 1.6 0 3 .4 4.2 1" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    <path d="M21 15v8M17 19h8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+  </svg>
+);
+
+export const TrophyIcon = ({ filled, ...p }: P & { filled?: boolean }) => (
+  <svg viewBox="0 0 28 28" aria-hidden {...p}>
+    <path d="M8.5 4.5h11v6.5a5.5 5.5 0 0 1-11 0z" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M8.5 7H5.5v1.5A3.5 3.5 0 0 0 9 12M19.5 7h3v1.5A3.5 3.5 0 0 1 19 12M14 16.5v4M9.5 23.5h9M11 20.5h6v3h-6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const PersonIcon = ({ filled, ...p }: P & { filled?: boolean }) => (
   <svg viewBox="0 0 28 28" aria-hidden {...p}>
     <circle cx="14" cy="14" r="11.5" fill="none" stroke="currentColor" strokeWidth="1.8" />

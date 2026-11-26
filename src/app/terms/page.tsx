@@ -26,8 +26,8 @@ export default function TermsPage() {
 
       <h2>Your account</h2>
       <p>
-        You sign in with your own Google account and are responsible for which groups you join and who you share
-        invite links with. Be kind. Don&apos;t use Rested to harass anyone.
+        You sign in with your own Google account and are responsible for who you add as a friend and who you share
+        your friend link with. Be kind. Don&apos;t use Rested to harass anyone.
       </p>
 
       <h2>No warranty</h2>

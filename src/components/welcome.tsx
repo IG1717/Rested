@@ -7,7 +7,7 @@ export function Welcome({ next, error, invite }: { next?: string; error?: string
   return (
     <main className="welcome">
       <img src={MARK_DATA_URI} alt="" className="welcome-mark" />
-      <h1>{invite ? <>Join {invite} on Rested</> : <>Who slept best last&nbsp;night?</>}</h1>
+      <h1>{invite ? <>{invite} wants to compare stats on Rested</> : <>Who slept best last&nbsp;night?</>}</h1>
       <p className="lede">
         Rested turns your Google Health data into friendly leaderboards, so you and your friends can
         compete on more than steps.
@@ -30,8 +30,8 @@ export function Welcome({ next, error, invite }: { next?: string; error?: string
         <li>
           <ChartIcon className="ficon" />
           <div>
-            <strong>Groups and trends</strong>
-            <span>Make a group, share the link, and watch the lead change over weeks.</span>
+            <strong>Friends and trends</strong>
+            <span>Share your friend link, then watch the lead change over weeks.</span>
           </div>
         </li>
       </ul>
@@ -46,7 +46,7 @@ export function Welcome({ next, error, invite }: { next?: string; error?: string
         </a>
         <p className="fine-print">
           Use the Google account your Fitbit syncs to. Google will ask to share your sleep and activity data
-          with Rested. Only people in your groups can see it. <a href="/privacy">Privacy</a> ·{" "}
+          with Rested. Only your friends on Rested can see it. <a href="/privacy">Privacy</a> ·{" "}
           <a href="/terms">Terms</a>
         </p>
       </div>

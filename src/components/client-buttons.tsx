@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import { useSync } from "./sync-provider";
 
 /** Share sheet on phones, clipboard elsewhere. */
-export function ShareInvite({ url, groupName }: { url: string; groupName: string }) {
+export function ShareInvite({ url, name }: { url: string; name: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -18,7 +18,7 @@ export function ShareInvite({ url, groupName }: { url: string; groupName: string
       type="button"
       className="btn btn-primary"
       onClick={async () => {
-        const data = { title: `Join ${groupName} on Rested`, text: `Compete with me on sleep and activity in ${groupName}.`, url };
+        const data = { title: `Add ${name} on Rested`, text: `Compete with me on sleep and activity on Rested.`, url };
         if (navigator.share && navigator.canShare?.(data)) {
           try {
             await navigator.share(data);
@@ -61,6 +61,34 @@ export function ConfirmSubmit({ label, confirmLabel }: { label: string; confirmL
       }}
     >
       {pending ? "Working…" : armed ? confirmLabel : label}
+    </button>
+  );
+}
+
+/** Compact two-tap "Remove" for a friend row. The second tap submits the surrounding form. */
+export function RemoveFriendButton() {
+  const [armed, setArmed] = useState(false);
+  const { pending } = useFormStatus();
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+
+  return (
+    <button
+      type={armed ? "submit" : "button"}
+      className="pill-btn"
+      data-armed={armed}
+      disabled={pending}
+      onClick={(e) => {
+        if (!armed) {
+          e.preventDefault();
+          setArmed(true);
+        }
+      }}
+    >
+      {pending ? "Removing…" : armed ? "Confirm" : "Remove"}
     </button>
   );
 }

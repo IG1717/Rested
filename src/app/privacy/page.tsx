@@ -25,7 +25,7 @@ export default function PrivacyPage() {
       <ul>
         <li>
           <strong>Your basic Google profile</strong>: name, email address and profile photo, used to identify you
-          to the friends in your groups.
+          to your friends on Rested.
         </li>
         <li>
           <strong>Google Health sleep data</strong> (read-only): sleep sessions, sleep stages and time in bed.
@@ -40,15 +40,16 @@ export default function PrivacyPage() {
       <h2>What we store</h2>
       <p>
         Rested stores one summary row per day: totals such as steps and Zone Minutes, and nightly sleep figures such
-        as time asleep and minutes in deep, REM and light sleep. It also stores your groups and an
+        as time asleep and minutes in deep, REM and light sleep. It also stores your friend list and an
         encrypted Google access token so it can keep your stats up to date. Raw minute-by-minute data is not kept.
-        Data is held in a Neon Postgres database and served by Vercel, both in the United States.
+        Data is held in a Supabase Postgres database and served by Vercel, both in the United States.
       </p>
 
       <h2>Who can see it</h2>
       <p>
-        Your stats are visible only to members of the groups you join. Anyone with a group&apos;s invite link can
-        join that group, so share links only with people you want to compete with. Rested does not sell your data,
+        Your stats are visible only to the people you&apos;re friends with on Rested. Anyone who opens your friend
+        link can add you, so share it only with people you want to compete with, and reset it any time from the
+        Friends tab. Removing a friend hides your stats from each other. Rested does not sell your data,
         show ads, or share data with anyone else.
       </p>
 
@@ -58,7 +59,7 @@ export default function PrivacyPage() {
         <a href="https://developers.google.com/terms/api-services-user-data-policy">
           Google API Services User Data Policy
         </a>
-        , including the Limited Use requirements. Google user data is used only to show you and your group members
+        , including the Limited Use requirements. Google user data is used only to show you and your friends
         the leaderboards and trends in the app. It is not used for advertising, is not sold, is not used to train
         AI or machine-learning models, and is not read by humans except where you ask for help, for security
         purposes, or where the law requires it.

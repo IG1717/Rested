@@ -27,18 +27,20 @@ const ACCENT: Record<Category, { text: string; fill: string }> = {
 
 type Prefs = { category: Category; metric: Record<Category, MetricKey>; period: Period };
 
-function loadPrefs(groupId: string): Prefs | null {
+const PREFS_KEY = "rested:board";
+
+function loadPrefs(): Prefs | null {
   try {
-    const raw = localStorage.getItem(`rested:board:${groupId}`);
+    const raw = localStorage.getItem(PREFS_KEY);
     return raw ? (JSON.parse(raw) as Prefs) : null;
   } catch {
     return null;
   }
 }
 
-function savePrefs(groupId: string, prefs: Prefs) {
+function savePrefs(prefs: Prefs) {
   try {
-    localStorage.setItem(`rested:board:${groupId}`, JSON.stringify(prefs));
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
   } catch {}
 }
 
@@ -77,15 +79,13 @@ function periodLabel(period: Period, category: Category, offset: number, from: s
   };
 }
 
-export function GroupBoard({
-  groupId,
+export function Board({
   members,
   rows,
   viewerId,
   today,
   earliest,
 }: {
-  groupId: string;
   members: BoardMember[];
   rows: DayRow[];
   viewerId: string;
@@ -99,17 +99,17 @@ export function GroupBoard({
   });
   const [offset, setOffset] = useState(0);
 
-  // Restore the last view for this group after hydration.
+  // Restore the last view after hydration.
   useEffect(() => {
-    const saved = loadPrefs(groupId);
+    const saved = loadPrefs();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved) setPrefs({ ...saved, metric: { ...DEFAULT_METRIC, ...saved.metric } });
-  }, [groupId]);
+  }, []);
 
   const update = (patch: Partial<Prefs>) => {
     const next = { ...prefs, ...patch };
     setPrefs(next);
-    savePrefs(groupId, next);
+    savePrefs(next);
   };
 
   const { category, period } = prefs;
@@ -330,7 +330,10 @@ function Headline({
   if (me.rank == null) {
     text = "No data from you for this period yet. Wear your tracker and sync the Google Health app.";
   } else if (ranked.length < 2) {
-    text = "You're the only one with data so far. Invite friends to compete.";
+    text =
+      list.length < 2
+        ? "Add friends to start competing. Share your link from the Friends tab."
+        : "You're the only one with data so far.";
   } else if (me.rank === 1) {
     const second = ranked.find((s) => s.userId !== me.userId)!;
     const lead = (me.value ?? 0) - (second.value ?? 0);
