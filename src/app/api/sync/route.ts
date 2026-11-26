@@ -3,9 +3,14 @@ import { sql } from "@/lib/db";
 import { getSessionUserId } from "@/lib/session";
 import { syncUser } from "@/lib/sync";
 
-const MIN_INTERVAL_MS = 5 * 60 * 1000;
+export const maxDuration = 60;
 
-// Called by the app on open/foreground. Webhooks keep data fresh; this catches anything missed.
+const MIN_INTERVAL_MS = 5 * 60 * 1000;
+const GROUPMATE_STALE = "15 minutes";
+
+// Called by the app on open/foreground. Syncs the viewer, plus any groupmates whose data is
+// stale, so leaderboards are current whenever someone looks. Activity webhooks are ignored
+// (see the webhook route), so this is the main path for fresh steps/AZM during the day.
 export async function POST(request: Request) {
   const uid = await getSessionUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -17,9 +22,25 @@ export async function POST(request: Request) {
 
   const [u] = await sql`SELECT last_synced_at FROM users WHERE id = ${uid}`;
   const last = u?.last_synced_at ? new Date(u.last_synced_at).getTime() : 0;
-  if (!force && Date.now() - last < MIN_INTERVAL_MS) {
-    return NextResponse.json({ synced: false });
-  }
-  const result = await syncUser(uid);
-  return NextResponse.json({ synced: result.ok, error: result.ok ? undefined : result.error });
+  const selfDue = force || Date.now() - last >= MIN_INTERVAL_MS;
+
+  const mates = await sql`
+    SELECT DISTINCT u.id FROM group_members me
+    JOIN group_members gm ON gm.group_id = me.group_id
+    JOIN users u ON u.id = gm.user_id
+    WHERE me.user_id = ${uid} AND u.id <> ${uid}
+      AND u.refresh_token_enc IS NOT NULL
+      AND (u.last_synced_at IS NULL OR u.last_synced_at < now() - ${GROUPMATE_STALE}::interval)`;
+
+  if (!selfDue && !mates.length) return NextResponse.json({ synced: false });
+
+  const [self, ...others] = await Promise.all([
+    selfDue ? syncUser(uid) : null,
+    ...mates.map((m) => syncUser(m.id).catch(() => null)),
+  ]);
+  const anyOk = !!self?.ok || others.some((r) => r?.ok);
+  return NextResponse.json({
+    synced: anyOk,
+    error: self && !self.ok ? self.error : undefined,
+  });
 }

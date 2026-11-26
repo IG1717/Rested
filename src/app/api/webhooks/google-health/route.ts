@@ -17,6 +17,14 @@ function authorized(header: string | null) {
 
 type Notification = { healthUserId?: string; dataType?: string; intervals?: unknown[] };
 
+// Steps/distance/floors/AZM notifications arrive every few minutes per user, all day. Handling
+// them kept the Neon compute from ever scaling to zero and exhausted the free-plan compute quota
+// (Nov 2026). Only sleep and workouts sync from webhooks; activity totals refresh when anyone
+// opens the app (see /api/sync) and in the daily cron.
+const REALTIME_TYPES = ["sleep", "exercise"];
+const isRealtime = (dataType?: string) =>
+  !!dataType && REALTIME_TYPES.some((t) => dataType.toLowerCase().includes(t));
+
 export async function POST(request: Request) {
   if (!process.env.WEBHOOK_SECRET || !authorized(request.headers.get("authorization"))) {
     return new Response(null, { status: 401 });
@@ -27,7 +35,9 @@ export async function POST(request: Request) {
   // A single notification arrives as { data: {...} }; batches as an array.
   const items: Notification[] = (Array.isArray(body) ? body : [body])
     .map((b) => b?.data ?? b)
-    .filter((n): n is Notification => !!n?.healthUserId);
+    .filter((n): n is Notification => !!n?.healthUserId && isRealtime(n.dataType));
+  // Acknowledge without touching the database so the compute can stay asleep.
+  if (!items.length) return new Response(null, { status: 204 });
 
   // Collect the civil dates each user's changes touch, then re-sync just that span.
   const spans = new Map<string, { from: string; to: string }>();
