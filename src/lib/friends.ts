@@ -110,8 +110,20 @@ export async function getNights(userId: string, limit = 14): Promise<Night[]> {
     light: r.light_minutes,
     bedClockMin: r.bed_clock_min,
     wakeClockMin: r.wake_clock_min,
-    stages: r.sleep_stages,
+    stages: parseStages(r.sleep_stages),
   }));
+}
+
+/** Tolerates rows written before the double-encoding fix (a JSON string instead of an array). */
+function parseStages(v: unknown): Stage[] | null {
+  if (typeof v === "string") {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      return null;
+    }
+  }
+  return Array.isArray(v) ? (v as Stage[]) : null;
 }
 
 export type Workout = {

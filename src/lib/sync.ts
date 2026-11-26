@@ -98,22 +98,29 @@ export async function syncUser(
   }
 }
 
-async function upsertDays(userId: string, dates: string[], rows: Row[]) {
+export async function upsertDays(userId: string, dates: string[], rows: Row[]) {
   const col = <K extends keyof Row>(k: K) => rows.map((r) => r[k]);
   await sql`
     INSERT INTO daily_metrics (user_id, date, steps, azm, active_kcal, floors, distance_m,
       workouts, workout_minutes, sleep_minutes, deep_minutes, rem_minutes, light_minutes,
       awake_minutes, in_bed_minutes, sleep_efficiency, fall_asleep_minutes, nap_minutes,
       bed_clock_min, wake_clock_min, sleep_stages, bedtime, wake_time, updated_at)
-    SELECT ${userId}::uuid, *, now() FROM unnest(
+    SELECT ${userId}::uuid, d, steps, azm, kcal, floors, dist, wo, wo_min, sleep, deep, rem, light,
+      awake, in_bed, eff, fall, nap, bed_clock, wake_clock,
+      -- Stages arrive as JSON text and are parsed here. Passing them as jsonb[] makes the driver
+      -- JSON-encode each string again, storing a JSON string instead of an array.
+      stages::jsonb, bed, wake, now()
+    FROM unnest(
       ${dates}::date[], ${col("steps")}::int[], ${col("azm")}::int[], ${col("active_kcal")}::int[],
       ${col("floors")}::int[], ${col("distance_m")}::real[], ${col("workouts")}::int[],
       ${col("workout_minutes")}::int[], ${col("sleep_minutes")}::int[], ${col("deep_minutes")}::int[],
       ${col("rem_minutes")}::int[], ${col("light_minutes")}::int[], ${col("awake_minutes")}::int[],
       ${col("in_bed_minutes")}::int[], ${col("sleep_efficiency")}::real[],
       ${col("fall_asleep_minutes")}::int[], ${col("nap_minutes")}::int[],
-      ${col("bed_clock_min")}::int[], ${col("wake_clock_min")}::int[], ${col("sleep_stages")}::jsonb[],
+      ${col("bed_clock_min")}::int[], ${col("wake_clock_min")}::int[], ${col("sleep_stages")}::text[],
       ${col("bedtime")}::timestamptz[], ${col("wake_time")}::timestamptz[])
+      AS x(d, steps, azm, kcal, floors, dist, wo, wo_min, sleep, deep, rem, light, awake, in_bed, eff,
+        fall, nap, bed_clock, wake_clock, stages, bed, wake)
     ON CONFLICT (user_id, date) DO UPDATE SET
       steps = EXCLUDED.steps, azm = EXCLUDED.azm, active_kcal = EXCLUDED.active_kcal,
       floors = EXCLUDED.floors, distance_m = EXCLUDED.distance_m, workouts = EXCLUDED.workouts,
